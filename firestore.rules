@@ -1,0 +1,612 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ========= Helpers ========= */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isHost() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isHost == true;
+    }
+
+    function isStringList(field) {
+      return field is list && (field.size() == 0 || field[0] is string);
+    }
+
+    function isVehicleFieldSet(data) {
+      return data.keys().hasOnly([
+        'availability',
+        'brand',
+        'capacity',
+        'city',
+        'dailyRate',
+        'description',
+        'discount',
+        'distance',
+        'features',
+        'fulfillmentOptions',
+        'hostType',
+        'imageUrl',
+        'location',
+        'model',
+        'oldPrice',
+        'ownerId',
+        'powerType',
+        'price',
+        'rating',
+        'securityDeposit',
+        'seats',
+        'title',
+        'trips',
+        'vehicleType',
+        'year',
+        'createdAt',
+        'media',
+        'onboarding',
+        'pricing',
+        'availabilityOverrides'
+      ]);
+    }
+
+    function isPhotoListValid(list) {
+      return list is list
+        && (
+          list.size() == 0
+          || (
+            list[0] is map
+            && list[0].url is string
+            && (!('publicId' in list[0]) || list[0].publicId is string)
+            && (!('width' in list[0]) || list[0].width is number)
+            && (!('height' in list[0]) || list[0].height is number)
+            && (!('bytes' in list[0]) || list[0].bytes is number)
+            && (!('format' in list[0]) || list[0].format is string || list[0].format == null)
+            && (!('order' in list[0]) || list[0].order is number)
+          )
+        );
+    }
+
+    function isMediaValid(media) {
+      return media is map
+        && (!('photos' in media) || isPhotoListValid(media.photos))
+        && (!('video' in media)
+          || media.video == null
+          || (
+            media.video is map
+            && media.video.url is string
+            && (!('publicId' in media.video) || media.video.publicId is string)
+            && (!('duration' in media.video) || media.video.duration is number || media.video.duration == null)
+            && (!('bytes' in media.video) || media.video.bytes is number || media.video.bytes == null)
+            && (!('format' in media.video) || media.video.format is string || media.video.format == null)
+          )
+        );
+    }
+
+    function isOnboardingValid(info) {
+      return info is map
+        && (!('vin' in info) || info.vin is string || info.vin == null)
+        && (!('vinVerified' in info) || info.vinVerified is bool)
+        && (!('insuranceProof' in info) || info.insuranceProof is bool)
+        && (!('registrationProof' in info) || info.registrationProof is bool)
+        && (!('safetyEquipment' in info) || info.safetyEquipment is bool)
+        && (!('onboardingNotes' in info) || info.onboardingNotes is string || info.onboardingNotes == null);
+    }
+
+    function isPricingValid(pricing) {
+      return pricing is map
+        && (!('baseDailyRate' in pricing) || pricing.baseDailyRate is number)
+        && (!('weekendRate' in pricing) || pricing.weekendRate is number || pricing.weekendRate == null)
+        && (!('longTrip' in pricing)
+          || pricing.longTrip == null
+          || (
+            pricing.longTrip is map
+            && (!('thresholdNights' in pricing.longTrip) || pricing.longTrip.thresholdNights is number || pricing.longTrip.thresholdNights == null)
+            && (!('discountPercent' in pricing.longTrip) || pricing.longTrip.discountPercent is number || pricing.longTrip.discountPercent == null)
+          )
+        )
+        && (!('seasonalAdjustments' in pricing)
+          || (
+            pricing.seasonalAdjustments is list
+            && (
+              pricing.seasonalAdjustments.size() == 0
+              || (
+                pricing.seasonalAdjustments[0] is map
+                && pricing.seasonalAdjustments[0].label is string
+                && pricing.seasonalAdjustments[0].start is string
+                && pricing.seasonalAdjustments[0].end is string
+                && pricing.seasonalAdjustments[0].nightlyRate is number
+              )
+            )
+          )
+        );
+    }
+
+    function isAvailabilityOverridesValid(overrides) {
+      return overrides is list
+        && (
+          overrides.size() == 0
+          || (
+            overrides[0] is map
+            && overrides[0].start is string
+            && overrides[0].end is string
+            && (!('type' in overrides[0]) || overrides[0].type is string || overrides[0].type == null)
+          )
+        );
+    }
+
+    function validVehicleData(data) {
+      return (
+        (data.ownerId is string) &&
+        (data.city is string) &&
+        (data.vehicleType is string) &&
+        (!('title' in data) || data.title is string) &&
+        (!('brand' in data) || data.brand is string || data.brand == null) &&
+        (!('model' in data) || data.model is string || data.model == null) &&
+        (!('description' in data) || data.description is string || data.description == null) &&
+        (!('powerType' in data) || data.powerType is string || data.powerType == null) &&
+        (!('capacity' in data) || data.capacity is number || data.capacity == null) &&
+        (!('seats' in data) || data.seats is number || data.seats == null) &&
+        (!('year' in data) || data.year is number || data.year == null) &&
+        (!('dailyRate' in data) || data.dailyRate is number) &&
+        (!('price' in data) || data.price is number) &&
+        (!('oldPrice' in data) || data.oldPrice is number || data.oldPrice == null) &&
+        (!('discount' in data) || data.discount is number || data.discount == null) &&
+        (!('securityDeposit' in data) || data.securityDeposit is number || data.securityDeposit == null) &&
+        (!('rating' in data) || data.rating is number) &&
+        (!('trips' in data) || data.trips is number) &&
+        (!('distance' in data) || data.distance is number) &&
+        (!('hostType' in data) || data.hostType is string || data.hostType == null) &&
+        (!('imageUrl' in data) || data.imageUrl is string) &&
+        (!('features' in data) || isStringList(data.features)) &&
+        (!('fulfillmentOptions' in data) || isStringList(data.fulfillmentOptions)) &&
+        (!('availability' in data)
+          || (
+            data.availability is map
+            && (!('start' in data.availability) || data.availability.start is string)
+            && (!('end' in data.availability) || data.availability.end is string)
+          )
+        ) &&
+        (!('location' in data)
+          || (
+            data.location is map
+            && data.location.latitude is number
+            && data.location.longitude is number
+            && data.location.address is string
+          )
+        ) &&
+        (!('media' in data) || isMediaValid(data.media)) &&
+        (!('onboarding' in data) || isOnboardingValid(data.onboarding)) &&
+        (!('pricing' in data) || isPricingValid(data.pricing)) &&
+        (!('availabilityOverrides' in data) || isAvailabilityOverridesValid(data.availabilityOverrides)) &&
+        (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt == request.time)
+      );
+    }
+
+    function isBookingFieldSet(data) {
+      return data.keys().hasOnly([
+        'vehicleId',
+        'vehicleTitle',
+        'vehicleImage',
+        'hostId',
+        'renterId',
+        'start',
+        'end',
+        'status',
+        'paymentStatus',
+        'nightlyRate',
+        'nights',
+        'quotedTotal',
+        'createdAt',
+        'simulated',
+        'payment',
+        'completedAt',
+        'canceledAt',
+        'guests',
+        'note'
+      ]);
+    }
+
+    function validBookingData(data) {
+      return (
+        (data.vehicleId is string) &&
+        (!('hostId' in data) || data.hostId is string) &&
+        (data.renterId is string) &&
+        ((data.start is string) || (data.start is timestamp)) &&
+        ((data.end is string) || (data.end is timestamp)) &&
+        (data.status is string) &&
+        (!('paymentStatus' in data) || data.paymentStatus is string) &&
+        (!('nightlyRate' in data) || data.nightlyRate is number) &&
+        (!('nights' in data) || data.nights is number) &&
+        (!('quotedTotal' in data) || data.quotedTotal is number) &&
+        (!('vehicleTitle' in data) || data.vehicleTitle is string || data.vehicleTitle == null) &&
+        (!('vehicleImage' in data) || data.vehicleImage is string || data.vehicleImage == null) &&
+        (!('simulated' in data) || data.simulated is bool || data.simulated == null) &&
+        (!('guests' in data) || data.guests is number) &&
+        (!('note' in data) || data.note is string || data.note == null) &&
+        (!('payment' in data)
+          || (
+            data.payment is map
+            && (!('status' in data.payment) || data.payment.status is string)
+            && (!('processedAt' in data.payment)
+                || data.payment.processedAt is timestamp
+                || data.payment.processedAt == request.time
+                || data.payment.processedAt == null)
+          )
+        ) &&
+        (!('completedAt' in data) || data.completedAt is timestamp || data.completedAt == request.time) &&
+        (!('canceledAt' in data) || data.canceledAt is timestamp || data.canceledAt == request.time) &&
+        (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt == request.time)
+      );
+    }
+
+    function isThreadMember(threadId) {
+      return exists(/databases/$(database)/documents/threads/$(threadId))
+        && (
+          request.auth.uid in get(/databases/$(database)/documents/threads/$(threadId)).data.members
+          || (
+            get(/databases/$(database)/documents/threads/$(threadId)).data.type == 'booking'
+            && isBookingParticipant(threadId)
+          )
+        );
+    }
+
+    function isBookingParticipant(bookingId) {
+      return exists(/databases/$(database)/documents/bookings/$(bookingId))
+        && (
+          get(/databases/$(database)/documents/bookings/$(bookingId)).data.renterId == request.auth.uid
+          || get(/databases/$(database)/documents/bookings/$(bookingId)).data.hostId == request.auth.uid
+        );
+    }
+
+    /* ========= Vehicles ========= */
+    match /cars/{carId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerId == request.auth.uid
+                    && isHost()
+                    && isVehicleFieldSet(request.resource.data)
+                    && validVehicleData(request.resource.data);
+
+      allow update: if isSignedIn()
+                    && resource.data.ownerId == request.auth.uid
+                    && isVehicleFieldSet(request.resource.data)
+                    && validVehicleData(request.resource.data)
+                    && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    /* ========= Bookings ========= */
+    match /bookings/{bookingId} {
+      allow get, list: if isSignedIn()
+        && (
+          resource.data.renterId == request.auth.uid
+          || resource.data.hostId == request.auth.uid
+        );
+
+      allow create: if isSignedIn()
+        && request.resource.data.renterId == request.auth.uid
+        && request.resource.data.status == 'requested';
+
+      allow update: if isSignedIn()
+        && (
+          (
+            resource.data.hostId == request.auth.uid
+            && request.resource.data.status in ['approved','active','completed','canceled']
+            && request.resource.data.vehicleId == resource.data.vehicleId
+            && request.resource.data.renterId == resource.data.renterId
+            && (!('hostId' in request.resource.data) || request.resource.data.hostId == resource.data.hostId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+              'status','paymentStatus','payment','completedAt','canceledAt'
+            ])
+          )
+          ||
+          (
+            resource.data.renterId == request.auth.uid
+            && request.resource.data.status == 'canceled'
+            && request.resource.data.vehicleId == resource.data.vehicleId
+            && (!('hostId' in request.resource.data) || request.resource.data.hostId == resource.data.hostId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+              'status','paymentStatus','canceledAt'
+            ])
+          )
+          ||
+          (
+            resource.data.renterId == request.auth.uid
+            && resource.data.status == 'requested'
+            && request.resource.data.status == 'requested'
+            && request.resource.data.vehicleId == resource.data.vehicleId
+            && request.resource.data.renterId == resource.data.renterId
+            && (!('hostId' in request.resource.data) || request.resource.data.hostId == resource.data.hostId)
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+              'start','end','nightlyRate','nights','quotedTotal','guests','note','status'
+            ])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    /* ========= Users ========= */
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false;
+
+      /* Device tokens (Expo / FCM) */
+      match /devices/{tokenId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create, update, delete: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['token','platform','expo','updatedAt'])
+          && (request.resource.data.token is string)
+          && (request.resource.data.platform in ['ios','android'])
+          && (request.resource.data.expo is bool || request.resource.data.expo == null)
+          && (request.resource.data.updatedAt is timestamp);
+      }
+    }
+
+    /* ========= Favorites ========= */
+    match /users/{userId}/favorites/{favId} {
+      allow read, create, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    /* ========= Organizations ========= */
+    match /organizations/{orgId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      match /members/{uid} {
+        allow get, list: if isSignedIn();
+
+        allow create: if isSignedIn()
+                      && request.auth.uid == uid
+                      && request.resource.data.keys().hasOnly(['joinedAt','displayName','photoURL'])
+                      && (request.resource.data.joinedAt is timestamp)
+                      && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+                      && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string || request.resource.data.photoURL == null);
+
+        allow update: if isSignedIn()
+                      && request.auth.uid == uid
+                      && request.resource.data.keys().hasOnly(['joinedAt','displayName','photoURL'])
+                      && request.resource.data.joinedAt == resource.data.joinedAt
+                      && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+                      && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string || request.resource.data.photoURL == null);
+
+        allow delete: if false;
+      }
+    }
+
+    /* ========= Events, Contributions, Payments, etc. ========= */
+    match /events/{eventId} {
+      allow get, list: if true;
+      allow create: if isSignedIn()
+                    && request.resource.data.keys().hasAll(['title','startsAt','orgId'])
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if isSignedIn();
+
+      match /checkins/{uid} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+                      && request.auth.uid == uid
+                      && request.resource.data.uid == request.auth.uid
+                      && !exists(/databases/$(database)/documents/events/$(eventId)/checkins/$(uid))
+                      && request.resource.data.keys().hasOnly(['uid','name','checkedInAt','onTime','avatar'])
+                      && (!('onTime' in request.resource.data) || (request.resource.data.onTime is bool))
+                      && (!('avatar' in request.resource.data) || (request.resource.data.avatar is string));
+        allow update, delete: if false;
+      }
+    }
+
+    match /contributions/{contribId} {
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn();
+    }
+
+    match /{path=**}/payments/{paymentId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+             'uid','orgId','contributionId','contributionTitle','name','avatar','items',
+             'total','totalSigned','method','note','paidAt','createdAt'
+           ])
+        && (request.resource.data.orgId is string)
+        && (request.resource.data.contributionId is string)
+        && (request.resource.data.contributionTitle is string)
+        && (request.resource.data.name is string)
+        && (!('avatar' in request.resource.data) || request.resource.data.avatar is string || request.resource.data.avatar == null)
+        && (request.resource.data.total is number)
+        && (request.resource.data.totalSigned is number || request.resource.data.totalSigned == null)
+        && (request.resource.data.method is string)
+        && (request.resource.data.note is string)
+        && (request.resource.data.paidAt is timestamp)
+        && (request.resource.data.items is list)
+        && (request.resource.data.items.size() >= 1)
+        && (request.resource.data.items[0] is map)
+        && ('key' in request.resource.data.items[0])
+        && ('label' in request.resource.data.items[0])
+        && ('category' in request.resource.data.items[0])
+        && ('amount' in request.resource.data.items[0])
+        && (request.resource.data.items[0].key is string)
+        && (request.resource.data.items[0].label is string)
+        && (request.resource.data.items[0].category is string)
+        && (request.resource.data.items[0].amount is number)
+        && get(/databases/$(database)/documents/contributions/$(request.resource.data.contributionId)).data.orgId
+             == request.resource.data.orgId;
+      allow delete: if false;
+    }
+
+    match /organizations/{orgId}/months/{yyyymm}/payments/{paymentId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /monthlyReports/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /organizations/{orgId}/announcements/{annId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'title','body','imageUrl','pinned','status',
+          'audience','audienceIds',
+          'publishedAt','expiresAt',
+          'createdAt','updatedAt','createdBy','publishedBy'
+        ])
+        && (request.resource.data.title is string)
+        && (!('body' in request.resource.data) || request.resource.data.body is string)
+        && (!('imageUrl' in request.resource.data) || request.resource.data.imageUrl is string || request.resource.data.imageUrl == null)
+        && (!('pinned' in request.resource.data) || request.resource.data.pinned is bool)
+        && (!('audience' in request.resource.data) || (request.resource.data.audience in ['all','hosts','renters','custom']))
+        && (!('audienceIds' in request.resource.data) || request.resource.data.audienceIds is list)
+        && (request.resource.data.status in ['draft','published','archived']);
+    }
+
+    match /users/{userId}/announcementReads/{aid} {
+      allow read, create, update, delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    /* ========= Messaging (dev) ========= */
+    match /threads/{threadId} {
+      allow get, list: if isSignedIn()
+        && (
+          (resource.data.members[request.auth.uid].uid == request.auth.uid)
+          || (
+            resource.data.type == 'booking'
+            && exists(/databases/$(database)/documents/bookings/$(threadId))
+            && (
+              get(/databases/$(database)/documents/bookings/$(threadId)).data.renterId == request.auth.uid 
+              || get(/databases/$(database)/documents/bookings/$(threadId)).data.hostId == request.auth.uid
+            )
+          )
+        );
+
+      allow create: if isSignedIn()
+        && (
+          (
+            request.resource.data.type == 'booking'
+            && exists(/databases/$(database)/documents/bookings/$(threadId))
+            && (
+              get(/databases/$(database)/documents/bookings/$(threadId)).data.renterId == request.auth.uid 
+              || get(/databases/$(database)/documents/bookings/$(threadId)).data.hostId == request.auth.uid
+            )
+          ) || (
+            request.resource.data.type != 'booking'
+          )
+        )
+        && request.resource.data.keys().hasOnly([
+             'type','name','createdAt','createdBy','lastMessage','orgId','members'
+           ])
+        && (request.resource.data.type in ['dm','channel','booking'])
+        && (request.resource.data.createdAt is timestamp)
+        && (request.resource.data.members is map)
+        && (request.auth.uid in request.resource.data.members)
+        && request.resource.data.members[request.auth.uid] is map
+        && request.resource.data.members[request.auth.uid].uid == request.auth.uid
+        && (!('name' in request.resource.data) || request.resource.data.name is string);
+
+      allow update: if isSignedIn()
+        && (
+          (
+            request.auth.uid in resource.data.members
+            && resource.data.members[request.auth.uid] is map
+            && resource.data.members[request.auth.uid].uid == request.auth.uid
+          ) || (
+            resource.data.type == 'booking'
+            && exists(/databases/$(database)/documents/bookings/$(threadId))
+            && (
+              get(/databases/$(database)/documents/bookings/$(threadId)).data.renterId == request.auth.uid 
+              || get(/databases/$(database)/documents/bookings/$(threadId)).data.hostId == request.auth.uid
+            )
+          )
+        )
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastMessage']);
+
+      allow delete: if false;
+
+      match /members/{memberId} {
+        allow get, list: if isSignedIn();
+        allow create, update: if isSignedIn()
+                              && request.auth.uid == memberId
+                              && request.resource.data.keys().hasOnly(['joinedAt','lastReadAt','role','displayName','photoURL'])
+                              && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt is timestamp)
+                              && (!('lastReadAt' in request.resource.data) || request.resource.data.lastReadAt is timestamp || request.resource.data.lastReadAt == null)
+                              && (!('role' in request.resource.data) || (request.resource.data.role in ['owner','member']))
+                              && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+                              && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string || request.resource.data.photoURL == null);
+        allow delete: if false;
+      }
+
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn()
+          && (
+            (get(/databases/$(database)/documents/threads/$(threadId)).data.members[request.auth.uid].uid == request.auth.uid)
+            || (
+              get(/databases/$(database)/documents/threads/$(threadId)).data.type == 'booking'
+              && exists(/databases/$(database)/documents/bookings/$(threadId))
+              && (
+                get(/databases/$(database)/documents/bookings/$(threadId)).data.renterId == request.auth.uid 
+                || get(/databases/$(database)/documents/bookings/$(threadId)).data.hostId == request.auth.uid
+              )
+            )
+          );
+
+        allow create: if isSignedIn()
+          && (isThreadMember(threadId) || isBookingParticipant(threadId))
+          && request.resource.data.keys().hasOnly(['text','media','type','senderId','createdAt','replyTo'])
+          && request.resource.data.senderId == request.auth.uid
+          && (request.resource.data.createdAt is timestamp)
+          && (!('replyTo' in request.resource.data) || request.resource.data.replyTo is string || request.resource.data.replyTo == null)
+          && (request.resource.data.type in ['text','image'])
+          && (
+               (request.resource.data.type == 'text'
+                && request.resource.data.text is string
+                && request.resource.data.text.size() > 0
+                && request.resource.data.text.size() <= 4000)
+               ||
+               (request.resource.data.type == 'image'
+                && request.resource.data.media is map
+                && request.resource.data.media.url is string
+                && request.resource.data.media.url.size() > 0
+                && (!('thumb' in request.resource.data.media) || request.resource.data.media.thumb is string || request.resource.data.media.thumb == null))
+             );
+
+        allow update, delete: if false;
+      }
+
+      match /typing/{uid} {
+        allow read: if isSignedIn() && isThreadMember(threadId);
+
+        allow create, update: if isSignedIn()
+          && request.auth.uid == uid
+          && isThreadMember(threadId)
+          && request.resource.data.keys().hasOnly(['isTyping','updatedAt'])
+          && (request.resource.data.isTyping is bool)
+          && (request.resource.data.updatedAt is timestamp);
+
+        allow delete: if isSignedIn() && request.auth.uid == uid;
+      }
+    }
+
+    match /{path=**}/members/{memberId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn()
+                            && request.auth.uid == memberId
+                            && request.resource.data.keys().hasOnly(['joinedAt','lastReadAt','role','displayName','photoURL'])
+                            && (!('joinedAt' in request.resource.data) || request.resource.data.joinedAt is timestamp)
+                            && (!('lastReadAt' in request.resource.data) || request.resource.data.lastReadAt is timestamp || request.resource.data.lastReadAt == null)
+                            && (!('role' in request.resource.data) || (request.resource.data.role in ['owner','member']))
+                            && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+                            && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string || request.resource.data.photoURL == null);
+      allow delete: if false;
+    }
+  }
+}

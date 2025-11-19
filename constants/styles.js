@@ -1,0 +1,83 @@
+export const GlobalStyles = {
+  colors: {
+    background: '#111316',
+    surface: '#16191D',
+    primary50: '#F2E8CC',
+    primary100: '#E9DDAE',
+    primary200: '#DFCF8A',
+    primary400: '#D3B964',
+    primary500: '#C8A24E',
+    primary700: '#A88634',
+    accent50: '#F7EFD6',
+    accent100: '#EEDFAE',
+    accent200: '#E5CF86',
+    accent400: '#DCBF6C',
+    accent500: '#E0C879',
+    gray200: '#D8DCE3',
+    gray300: '#C1C7D0',
+    gray500: '#8E96A0',
+    gray600: '#6E7781',
+    gray700: '#3A3F45',
+    gray800: '#23272C',
+    onPrimary: '#1B1B1B',
+    onSurface: '#EAE6DA',
+    border: '#3A3F45',
+    error500: '#cc0000',
+  },
+};
+
+export const GlobalStylesDark = {
+  colors: {
+    background: '#1A1D21',
+    surface: '#20242A',
+    primary50: '#F2E8CC',
+    primary100: '#E9DDAE',
+    primary200: '#DFCF8A',
+    primary400: '#D3B964',
+    primary500: '#C8A24E',
+    primary700: '#8E732B',
+    accent50: '#3B2A1F',
+    accent100: '#5C4A33',
+    accent200: '#7D6A47',
+    accent400: '#9E805C',
+    accent500: '#C09B6F',
+    gray200: '#3B4046',
+    gray300: '#4C5159',
+    gray500: '#A3A9B3',
+    gray600: '#818792',
+    gray700: '#5A5F68',
+    gray800: '#2C3138',
+    onPrimary: '#1B1B1B',
+    onSurface: '#F5F1E6',
+    border: '#2C3138',
+    error500: '#ff6b6b',
+  },
+};
+
+export const Typography = {
+  h1: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: GlobalStyles.colors.onSurface,
+  },
+  h2: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: GlobalStyles.colors.onSurface,
+  },
+  h3: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: GlobalStyles.colors.onSurface,
+  },
+  body: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: GlobalStyles.colors.onSurface,
+  },
+  caption: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: GlobalStyles.colors.gray500,
+  },
+};
