@@ -19,14 +19,22 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111316"
-      }
+      },
+      "package": "com.hervekaffo2021.gears"
     },
+    "package": "com.example.gears",
+    "versionCode": 1,
     "web": {
       "favicon": "./assets/favicon.png",
       "name": "Gears"
     },
     "plugins": [
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4c0600f1-e601-410f-92f1-279410d2b24d"
+      }
+    }
   }
 }
