@@ -20,16 +20,27 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111316"
       },
-      "package": "com.hervekaffo2021.gears"
+      "package": "com.hervekaffo2021.gears",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_ANDROID_API_KEY"
+        }
+      }
     },
-    "package": "com.example.gears",
-    "versionCode": 1,
     "web": {
       "favicon": "./assets/favicon.png",
       "name": "Gears"
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications",
+      "expo-location"
     ],
     "extra": {
       "eas": {
